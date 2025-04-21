@@ -1,10 +1,12 @@
+use std::sync::RwLock;
+
 use hashbrown::HashMap;
 use pyo3::{prelude::*, types::*};
 
 
 #[pyclass(name="rust_cache")]
 struct RustCache {
-    cache: HashMap<i64, PyObject>,
+    cache: RwLock<HashMap<isize, PyObject>>,
     wrap: PyObject
 }
 
@@ -13,7 +15,7 @@ impl RustCache {
     #[new]
     fn __new__(wrap: PyObject) -> Self {
         RustCache {
-            cache: HashMap::new(),
+            cache: RwLock::new(HashMap::new()),
             wrap
         }
     }
@@ -22,30 +24,29 @@ impl RustCache {
         &self,
         args: &Bound<'_, PyTuple>, 
         kwargs: Option<&Bound<'_, PyDict>>
-    ) -> PyResult<i64> {
+    ) -> PyResult<isize> {
         if let Some(kwargs) = kwargs {
             for item in kwargs.items() {
                 args.add(item)?;
             }
         }
-        let hash = args.call_method0("__hash__")?
-                                            .extract()?;
+        let hash = args.hash()?;
         Ok(hash)
     }
 
     #[pyo3(signature=(*args, **kwargs))]
     fn __call__(
-        &mut self,
+        &self,
         py: Python<'_>,
         args: &Bound<'_, PyTuple>,
         kwargs: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<PyObject> {
         let key = self.make_key(args, kwargs)?;
-        if let Some(res) = self.cache.get(&key) {
+        if let Some(res) = self.cache.read().unwrap().get(&key) {
             return Ok(res.clone_ref(py));
         }
         let res = self.wrap.call(py, args, kwargs)?;
-        self.cache.insert(key, res.clone_ref(py));
+        self.cache.write().unwrap().insert(key, res.clone_ref(py));
         Ok(res)
     }
 }
