@@ -1,8 +1,6 @@
 use std::sync::RwLock;
-
 use hashbrown::HashMap;
 use pyo3::{prelude::*, types::*};
-
 
 #[pyclass(name="rust_cache")]
 struct RustCache {
